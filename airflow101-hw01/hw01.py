@@ -57,7 +57,7 @@ def publish_stat():
                 employee_writer.writerow([dt, region, infected, recovered, dead])
 
 
-with DAG(dag_id='hw01', default_args=args, schedule_interval='52 18 * * *') as dag:
+with DAG(dag_id='hw01', default_args=args, schedule_interval='0 9 * * *') as dag:
     download_and_publish_stat = PythonOperator(
         task_id='publish_stat',
         python_callable=publish_stat,
