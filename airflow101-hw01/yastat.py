@@ -67,25 +67,4 @@ with DAG(dag_id='hw01', default_args=args, schedule_interval='0 12 * * *') as da
         dag=dag
     )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+publish_stat
