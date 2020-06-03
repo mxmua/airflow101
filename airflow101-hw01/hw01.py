@@ -8,13 +8,14 @@ import csv
 
 args = {
     'owner': 'airflow',
-    'start_date': dt.datetime(2020, 6, 03),
+    'start_date': dt.datetime(2020, 6, 3),
 }
 
 # filepath = '~'
 filepath = '/var/www/html/stat'
 
 FILENAME = os.path.join(os.path.expanduser(filepath), 'yandex_covid19_stat.csv')
+
 
 def publish_stat():
     api_url = 'https://yastat.net/s3/milab/2020/covid19-stat/data/data_struct_10.json?v=timestamp'
