@@ -7,7 +7,7 @@ import requests
 import csv
 
 args = {
-    'owner': 'airflow',
+    'owner': 'maxim',
     'start_date': dt.datetime(2020, 6, 3),
 }
 
@@ -57,7 +57,7 @@ def publish_stat():
                 employee_writer.writerow([dt, region, infected, recovered, dead])
 
 
-with DAG(dag_id='hw01', default_args=args, schedule_interval='0 12 * * *') as dag:
+with DAG(dag_id='hw01', default_args=args, schedule_interval='45 18 * * *') as dag:
     download_and_publish_stat = PythonOperator(
         task_id='publish_stat',
         python_callable=publish_stat,
