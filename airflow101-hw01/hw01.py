@@ -8,7 +8,7 @@ import csv
 
 args = {
     'owner': 'maxim',
-    'start_date': dt.datetime(2020, 6, 3),
+    'start_date': dt.datetime(2020, 6, 1),
 }
 
 # filepath = '~'
