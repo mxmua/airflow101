@@ -134,3 +134,4 @@ dmypy.json
 # cur project
 .idea/
 *notes.txt
+test*.py
