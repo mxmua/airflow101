@@ -25,9 +25,25 @@ STAGE_DIR = os.path.join(os.path.expanduser('~'), 'stage')
 
 ORDERS_SRC = 'https://airflow101.python-jitsu.club/orders.csv'
 ORDERS_FILENAME = 'orders.csv'
+ORDERS_FILENAME_FIXED = 'orders_fixed.csv'
 
 PAYMENT_STATUS_SRC = 'https://api.jsonbin.io/b/5ed7391379382f568bd22822'
 PAYMENT_STATUS_FILENAME = 'payment_status.csv'
+
+
+def fix_ordersfile_header():
+    header = ['id', 'uuid', 'good_name', 'order_date', 'amount', 'customer_name', 'customer_email']
+
+    with open(os.path.join(STAGE_DIR, ORDERS_FILENAME), mode='r') as src_file:
+        reader = csv.DictReader(src_file, fieldnames=header)
+
+        # use newline='' to avoid adding new CR at end of line
+        with open(os.path.join(STAGE_DIR, ORDERS_FILENAME_FIXED), mode='w', newline='') as dest_file: 
+            print(dest_file.name)
+            writer = csv.DictWriter(dest_file, fieldnames=reader.fieldnames)
+            # writer.writeheader()
+            header_shift = next(reader)
+            writer.writerows(reader)
 
 
 def download_payment_status():
@@ -35,7 +51,7 @@ def download_payment_status():
 
     with open(os.path.join(STAGE_DIR, PAYMENT_STATUS_FILENAME), mode='w') as dest_file:
         payment_status_writer = csv.writer(dest_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        payment_status_writer.writerow(['order_uuid', 'payment_status'])
+        # payment_status_writer.writerow(['order_uuid', 'payment_status'])
 
         for d in data.keys():
             order_uuid = d
@@ -139,6 +155,16 @@ def load_pg_to_pg_stage(sql_get_src, sql_insert_target):
     trg_conn.close()
 
 
+def load_csv_to_pg_stage(csv_dir, csv_filename, pg_tablename):
+    trg_conn = PostgresHook(postgres_conn_id='postgre_hw02_trg').get_conn()
+    trg_cursor = trg_conn.cursor()
+    src_csv = open(os.path.join(csv_dir, csv_filename), mode='r')
+    src_csv.seek(0)
+    trg_cursor.copy_from(src_csv, pg_tablename, sep=',')
+    trg_conn.commit()
+    src_csv.close()
+
+
 
 with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
     # Entry point
@@ -148,6 +174,11 @@ with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
     download_orders = BashOperator(
         task_id='download_orders',
         bash_command='rm {dir}/{filename} ; wget -P {dir} -O {dir}/{filename} {src}'.format(dir=STAGE_DIR, filename=ORDERS_FILENAME, src=ORDERS_SRC)
+    )
+
+    fix_orders_header = PythonOperator(
+        task_id = 'fix_orders_header',
+        python_callable = fix_ordersfile_header
     )
 
     # Save payment status to csv
@@ -175,22 +206,35 @@ with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
     )
 
     create_stage_payment_status = PostgresOperator(
-        task_id='create_stage_payment_status',
+        task_id = 'create_stage_payment_status',
         postgres_conn_id = 'postgre_hw02_trg',
         sql=sql_create_stage_payment_status
     )
 
     load_stage_customers = PythonOperator(
-        task_id='load_stage_customers',
-        python_callable=load_pg_to_pg_stage,
-        op_kwargs={'sql_get_src': sql_get_src_customers, 'sql_insert_target': sql_insert_target_customers}
+        task_id = 'load_stage_customers',
+        python_callable = load_pg_to_pg_stage,
+        op_kwargs = {'sql_get_src': sql_get_src_customers, 'sql_insert_target': sql_insert_target_customers}
     )
 
     load_stage_goods = PythonOperator(
-        task_id='load_stage_goods',
-        python_callable=load_pg_to_pg_stage,
-        op_kwargs={'sql_get_src': sql_get_src_goods, 'sql_insert_target': sql_insert_target_goods}
+        task_id = 'load_stage_goods',
+        python_callable = load_pg_to_pg_stage,
+        op_kwargs = {'sql_get_src': sql_get_src_goods, 'sql_insert_target': sql_insert_target_goods}
     )
+    
+    load_stage_orders = PythonOperator(
+        task_id = 'load_stage_orders',
+        python_callable = load_csv_to_pg_stage,
+        op_kwargs = {'csv_dir': STAGE_DIR, 'csv_filename': ORDERS_FILENAME_FIXED, 'pg_tablename': 'stage_orders'}
+    )
+
+    load_stage_payment_status = PythonOperator(
+        task_id = 'load_stage_payment_status',
+        python_callable = load_csv_to_pg_stage,
+        op_kwargs = {'csv_dir': STAGE_DIR, 'csv_filename': PAYMENT_STATUS_FILENAME, 'pg_tablename': 'stage_payment_status'}
+    )
+
     
 
     dummy_task >> [download_orders,
@@ -199,5 +243,7 @@ with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
                    create_stage_goods,
                    create_stage_orders,
                    create_stage_payment_status]
+    download_orders >> fix_orders_header >> load_stage_orders
     create_stage_customers >> load_stage_customers
     create_stage_goods >> load_stage_goods
+    create_stage_payment_status >> load_stage_payment_status
