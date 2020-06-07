@@ -30,9 +30,8 @@ ORDERS_FILENAME_FIXED = 'orders_fixed.csv'
 PAYMENT_STATUS_SRC = 'https://api.jsonbin.io/b/5ed7391379382f568bd22822'
 PAYMENT_STATUS_FILENAME = 'payment_status.csv'
 
-###
-### Utils
-###
+# Utils
+
 
 def fix_ordersfile_header():
     header = ['id', 'uuid', 'good_name', 'order_date', 'amount', 'customer_name', 'customer_email']
@@ -93,9 +92,8 @@ def load_csv_to_pg_stage(csv_dir, csv_filename, pg_tablename):
     src_csv.close()
 
 
-### 
-###  SQL templates
-###
+#  SQL templates
+
 
 sql_create_stage_customers = """
     drop table if exists stage_customers;
@@ -186,10 +184,8 @@ sql_load_final_dataset = """
 """
 
 
+# DAG
 
-###
-### DAG
-###
 
 with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
     # Entry point
@@ -198,72 +194,76 @@ with DAG(dag_id='hw02', default_args=args, schedule_interval=None) as dag:
     # Download orders.csv
     download_orders = BashOperator(
         task_id='download_orders',
-        bash_command='rm {dir}/{filename} ; wget -P {dir} -O {dir}/{filename} {src}'.format(dir=STAGE_DIR, filename=ORDERS_FILENAME, src=ORDERS_SRC)
+        bash_command='rm {dir}/{filename} ; wget -P {dir} -O {dir}/{filename} {src}'.
+            format(dir=STAGE_DIR, filename=ORDERS_FILENAME, src=ORDERS_SRC)
     )
 
     fix_orders_header = PythonOperator(
-        task_id = 'fix_orders_header',
-        python_callable = fix_ordersfile_header
+        task_id='fix_orders_header',
+        python_callable=fix_ordersfile_header
     )
 
     # Save payment status to csv
     download_payment_status = PythonOperator(
-        task_id = 'download_payment_status',
-        python_callable = download_payment_status
+        task_id='download_payment_status',
+        python_callable=download_payment_status
     )
 
     create_stage_customers = PostgresOperator(
-        task_id = 'create_stage_customers',
-        postgres_conn_id = 'postgre_hw02_trg',
-        sql = sql_create_stage_customers
+        task_id='create_stage_customers',
+        postgres_conn_id='postgre_hw02_trg',
+        sql=sql_create_stage_customers
     )
 
     create_stage_goods = PostgresOperator(
-        task_id = 'create_stage_goods',
-        postgres_conn_id = 'postgre_hw02_trg',
-        sql = sql_create_stage_goods
+        task_id='create_stage_goods',
+        postgres_conn_id='postgre_hw02_trg',
+        sql=sql_create_stage_goods
     )
 
     create_stage_orders = PostgresOperator(
-        task_id = 'create_stage_orders',
-        postgres_conn_id = 'postgre_hw02_trg',
-        sql = sql_create_stage_orders
+        task_id='create_stage_orders',
+        postgres_conn_id='postgre_hw02_trg',
+        sql=sql_create_stage_orders
     )
 
     create_stage_payment_status = PostgresOperator(
-        task_id = 'create_stage_payment_status',
-        postgres_conn_id = 'postgre_hw02_trg',
-        sql = sql_create_stage_payment_status
+        task_id='create_stage_payment_status',
+        postgres_conn_id='postgre_hw02_trg',
+        sql=sql_create_stage_payment_status
     )
 
     load_stage_customers = PythonOperator(
-        task_id = 'load_stage_customers',
-        python_callable = load_pg_to_pg_stage,
-        op_kwargs = {'sql_get_src': sql_get_src_customers, 'sql_insert_target': sql_insert_target_customers}
+        task_id='load_stage_customers',
+        python_callable=load_pg_to_pg_stage,
+        op_kwargs={'sql_get_src': sql_get_src_customers, 'sql_insert_target': sql_insert_target_customers}
     )
 
     load_stage_goods = PythonOperator(
-        task_id = 'load_stage_goods',
-        python_callable = load_pg_to_pg_stage,
-        op_kwargs = {'sql_get_src': sql_get_src_goods, 'sql_insert_target': sql_insert_target_goods}
+        task_id='load_stage_goods',
+        python_callable=load_pg_to_pg_stage,
+        op_kwargs={'sql_get_src': sql_get_src_goods, 'sql_insert_target': sql_insert_target_goods}
     )
     
     load_stage_orders = PythonOperator(
-        task_id = 'load_stage_orders',
-        python_callable = load_csv_to_pg_stage,
-        op_kwargs = {'csv_dir': STAGE_DIR, 'csv_filename': ORDERS_FILENAME_FIXED, 'pg_tablename': 'stage_orders'}
+        task_id='load_stage_orders',
+        python_callable=load_csv_to_pg_stage,
+        op_kwargs={'csv_dir': STAGE_DIR, 'csv_filename': ORDERS_FILENAME_FIXED, 'pg_tablename': 'stage_orders'}
     )
 
     load_stage_payment_status = PythonOperator(
-        task_id = 'load_stage_payment_status',
-        python_callable = load_csv_to_pg_stage,
-        op_kwargs = {'csv_dir': STAGE_DIR, 'csv_filename': PAYMENT_STATUS_FILENAME, 'pg_tablename': 'stage_payment_status'}
+        task_id='load_stage_payment_status',
+        python_callable=load_csv_to_pg_stage,
+        op_kwargs={'csv_dir': STAGE_DIR,
+                   'csv_filename': PAYMENT_STATUS_FILENAME,
+                   'pg_tablename': 'stage_payment_status'
+                   }
     )
 
     load_final_dataset = PostgresOperator(
-        task_id = 'load_final_dataset',
-        postgres_conn_id = 'postgre_hw02_trg',
-        sql = sql_load_final_dataset
+        task_id='load_final_dataset',
+        postgres_conn_id='postgre_hw02_trg',
+        sql=sql_load_final_dataset
     )
 
     dummy_task >> [download_orders,
