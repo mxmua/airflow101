@@ -165,22 +165,59 @@ sql_load_final_dataset = """
     truncate table final_dataset;
 
     insert into final_dataset(name, age, good_title, order_date, payment_status, total_price, amount, last_modified_at) 
+    with _orders as (
+        select   uuid
+                ,good_name
+                ,order_date
+                ,amount
+                ,customer_name
+                ,trim(upper(customer_email)) as customer_email
+                ,row_number() over (partition by uuid order by order_date desc) as rn
+          from stage_orders
+    )
+    ,_customers as (
+        select   c.email
+                ,date_part('year',age(c.birth_date)) as age
+                ,c.name
+                ,row_number() OVER (partition by c.email order by c.name) as rn
+          from stage_customers c
+    )
+    ,_goods as (
+        select   name
+                ,price
+                ,row_number() over (partition by name order by name) as rn
+          from stage_goods
+    )
+    ,_payment_status as (
+        select   order_uuid
+                ,status
+                ,row_number() over (partition by order_uuid order by case status
+                                                                        when TRUE
+                                                                            then 1
+                                                                        else 99 end) as rn
+          from stage_payment_status
+    )
+
     select
-            c.name
-            ,date_part('year',age(c.birth_date)) as age
+             coalesce(c.name, o.customer_name) as name
+            ,coalesce(c.age, -1) as age
             ,o.good_name as good_title
             ,o.order_date
             ,p.status as payment_status
             ,o.amount * g.price as total_price
             ,o.amount
             ,now() as last_modified_at
-      from stage_orders o
-      left join stage_customers c
+      from _orders o
+      left join _customers c
              on trim(upper(c.email)) = trim(upper(o.customer_email))
-      left join stage_goods g
-             on trim(upper(g.name)) = trim(upper(o.good_name))
-      left join stage_payment_status p
-             on p.order_uuid = o.uuid;
+            and c.rn = 1
+      left join _goods g
+             on g.name = o.good_name
+            and g.rn = 1
+      left join _payment_status p
+             on p.order_uuid = o.uuid
+            and p.rn = 1
+     where o.rn = 1;
 """
 
 
