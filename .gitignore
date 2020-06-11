@@ -136,3 +136,4 @@ dmypy.json
 *notes.txt
 test*.py
 json.json
+secur/
