@@ -3,20 +3,15 @@
 ###
 
 from airflow.hooks.postgres_hook import PostgresHook
-# from datetime import datetime, timedelta
-# from psycopg2.extras import execute_values
 
 import os
 import csv
 import psycopg2
 import uuid
-# import Exc
+import requests
 
 import secur.hw04_credentials as ENV
 
-class SanityCheckException(Exception):
-    """Simple exception for any source sanity check errors"""
-    pass
 
 def pg_connection_test(force_insert_test: bool = False) -> bool:
     try:
@@ -33,11 +28,13 @@ def pg_connection_test(force_insert_test: bool = False) -> bool:
         print(f'Connection failed: {ex}')
         return False
 
+
 def can_i_start_dag() -> str:
     if pg_connection_test(force_insert_test=True):
         return 'start_task'
     else:
         return 'stop_execution'
+
 
 def is_convertible_to_type(checked_value, checked_type: type) -> bool:
     try:
@@ -96,14 +93,9 @@ def check_list_elements_unique(input_list: list) -> bool:
     compare_set = set(input_list)
     return len(compare_set) == len(input_list)
 
+
 def sources_sanity_check(**kwargs) -> dict:
     task_id = kwargs['ti']
-
-    for k in kwargs:
-        print (str(kwargs) + ' -' + str(kwargs[k]))
-
-    # '/home/maxim/stage/payment_status.csv'
-    # print(os.path.join(ENV.STAGE_DIR, ENV.ORDERS_FILENAME))
 
     # lists of key fields
     customers_email_list = postgres_column_to_list(table_name='customers', column_name='email')
@@ -155,6 +147,7 @@ def sources_sanity_check(**kwargs) -> dict:
             test_result['failed'] += num_failed
     
     test_result['task_id'] = task_id.task_id
+    test_result['dag_id'] = task_id.dag_id
 
     print('Task_id below:')
     print(task_id.task_id)
@@ -165,25 +158,36 @@ def sources_sanity_check(**kwargs) -> dict:
     # }
 
     # task_id.xcom_push(key='xxcom', value=str(xcom_value))
-    # task_id.xcom_push(key='xxcom', value=10)
+
     return test_result
+
 
 def chose_way_after_sanity_check(**kwargs) -> str:
     task_id = kwargs['ti']
     xcom_value = task_id.xcom_pull(task_ids='source_sanity_check')
-    print('My xcom value: ' + str(xcom_value))
+    print(f'My xcom value: {str(xcom_value)}')
     
     if xcom_value['failed'] == 0:
         return 'sources_are_clear'
     else:
         return 'garbage_in_da_house_notifier'
 
+
 def bot_notification(**kwargs) -> None:
-    # pass
     task_id = kwargs['ti']
     xcom_value = task_id.xcom_pull(task_ids='source_sanity_check')
-    print('My xcom value: ' + str(xcom_value))
+    print(f'My xcom value: {str(xcom_value)}')
 
     failed_task_id = xcom_value['task_id']
-    print(failed_task_id)
+    failed_dag_id = xcom_value['dag_id']
+    print(f'failed_task_id: {failed_task_id}, dag_id: {failed_dag_id}')
 
+    # bot
+    bot_message = f'Data quality issue in [dag_id] task_id: [{failed_dag_id}] {failed_task_id}. \nSanity check result: {xcom_value}'
+
+    response = requests.post(
+        url=f'https://api.telegram.org/bot{ENV.TG_BOT_TOKEN}/sendMessage',
+        data={'chat_id': ENV.TG_BOT_CHAT_ID, 'text': bot_message}
+    ).json()
+
+    print(response)

@@ -9,12 +9,10 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import BranchPythonOperator
 
 from airflow.hooks.postgres_hook import PostgresHook
-# from datetime import datetime, timedelta
 from psycopg2.extras import execute_values
 
 import requests
 import csv
-import psycopg2
 
 import hw04_utils
 import secur.hw04_credentials as ENV
@@ -33,7 +31,8 @@ PAYMENT_STATUS_SRC = ENV.PAYMENT_STATUS_SRC
 PAYMENT_STATUS_FILENAME = ENV.PAYMENT_STATUS_FILENAME
 
 
-# OLD HomeWork 2 executables
+# OLD HomeWork 2 executables 
+# (for Homework 4 code see hw04_utils.py)
 
 def fix_ordersfile_header():
     header = ['id', 'uuid', 'good_name', 'order_date', 'amount', 'customer_name', 'customer_email']
