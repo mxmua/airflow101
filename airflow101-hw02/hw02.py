@@ -11,8 +11,6 @@ from airflow.hooks.postgres_hook import PostgresHook
 # from datetime import datetime, timedelta
 from psycopg2.extras import execute_values
 
-
-
 import requests
 import csv
 
@@ -90,10 +88,10 @@ def load_csv_to_pg_stage(csv_dir, csv_filename, pg_tablename):
     trg_cursor.copy_from(src_csv, pg_tablename, sep=',')
     trg_conn.commit()
     src_csv.close()
+    trg_conn.close()
 
 
 #  SQL templates
-
 
 sql_create_stage_customers = """
     drop table if exists stage_customers;
