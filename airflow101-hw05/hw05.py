@@ -15,7 +15,7 @@ import secur.hw04_credentials as ENV
 
 args = {
     'owner': 'maxim',
-    'start_date': datetime(2020, 6, 17, 18, 31),
+    'start_date': datetime(2020, 6, 18, 15, 20),
 }
 
 
@@ -71,7 +71,7 @@ def print_sla_miss(*args, **kwargs):
 
 with DAG(dag_id='hw05',
          default_args=args,
-         schedule_interval=timedelta(minutes=1),
+         schedule_interval=timedelta(minutes=15),
          sla_miss_callback=print_sla_miss,
          on_failure_callback=on_dag_failure,
          ) as dag:
@@ -80,7 +80,7 @@ with DAG(dag_id='hw05',
 
     task_canary = PythonOperator(
         task_id='canary_test',
-        sla=timedelta(seconds=23),
+        sla=timedelta(seconds=40),
         python_callable=canary_test,
     )
 
